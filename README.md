@@ -10,17 +10,8 @@ Available aa Nuget Package. Search for: "betterContextMenu.ColinKiama" or enter 
 ````csharp
 //Inside the SelectionChanged event of a TextBlock
 private void myTextBlock_SelectionChanged(object sender, RoutedEventArgs e)
-
-        {
-
-
-
-            var textblockToUse = (TextBlock)sender;
-
-          
-
-            contextMenu.setContextMenu(textblockToUse);
-
-           
-
-        }
+{
+  var textblockToUse = (TextBlock)sender;
+  contextMenu.setContextMenu(textblockToUse);
+}
+````
