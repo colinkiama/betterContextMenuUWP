@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Windows.ApplicationModel.DataTransfer;
+using Windows.Foundation;
 using Windows.Media.Core;
 using Windows.Media.SpeechSynthesis;
 using Windows.System;
@@ -20,89 +21,33 @@ namespace betterContextMenuUWP
         
       static  DataTransferManager dataTransferManager = DataTransferManager.GetForCurrentView();
        static TextBlock ogTextBlock;
-        private static Flyout meaningFlyout = new Flyout();
+        private static MenuFlyout meaningFlyout = new MenuFlyout();
         static string selectedText = "";
 
         public static void setContextMenu(TextBlock textBlockToTrack)
         {
+            meaningFlyout = new MenuFlyout();
             dataTransferManager.DataRequested += DataTransferManager_DataRequested;
             ogTextBlock = textBlockToTrack;
             string textToUse = textBlockToTrack.SelectedText.Trim();
             if (textToUse != "" || textToUse != string.Empty)
             {
-                Button copyButton = new Button()
-                {
-                    Width = 120,
-                    Height = 50,
-                    Content = "Copy",
-                    HorizontalContentAlignment = HorizontalAlignment.Left,
-                    Background = new SolidColorBrush(Colors.Transparent)
-                };
-                copyButton.Click += CopyButton_Click;
-                copyButton.Margin = new Thickness(0);
+                MenuFlyoutItem copyItem = new MenuFlyoutItem { Text = "Copy"};
+                copyItem.Click += CopyItem_Click;
+                MenuFlyoutItem speakItem = new MenuFlyoutItem { Text = "Speak" };
+                speakItem.Click += SpeakItem_Click;
+                MenuFlyoutItem searchItem = new MenuFlyoutItem { Text = "Search" };
+                searchItem.Click += SearchItem_Click;
+                MenuFlyoutItem shareItem = new MenuFlyoutItem { Text = "Share" };
+                shareItem.Click += ShareItem_Click;
+                MenuFlyoutItem selectAllItem = new MenuFlyoutItem { Text = "Select All" };
+                selectAllItem.Click += SelectAllItem_Click;
 
-                Button speakButton = new Button()
-                {
-                    Width = 120,
-                    Height = 50,
-                    Content = "Speak",
-                    HorizontalContentAlignment = HorizontalAlignment.Left,
-                    Background = new SolidColorBrush(Colors.Transparent)
-                };
-
-                speakButton.Click += SpeakButon_Click;
-                speakButton.Margin = new Thickness(0);
-
-                Button searchButton = new Button()
-                {
-                    Width = 120,
-                    Height = 50,
-                    Content = "Search Bing™",
-                    HorizontalContentAlignment = HorizontalAlignment.Left,
-                    Background = new SolidColorBrush(Colors.Transparent)
-                };
-
-                searchButton.Click += SearchButton_Click;
-                searchButton.Margin = new Thickness(0);
-
-                Button shareButton = new Button()
-                {
-                    Width = 120,
-                    Height = 50,
-                    Content = "Share",
-                    HorizontalContentAlignment = HorizontalAlignment.Left,
-                    Background = new SolidColorBrush(Colors.Transparent)
-                };
-
-                shareButton.Click += ShareButton_Click;
-                shareButton.Margin = new Thickness(0);
-
-                Button selectAllButton = new Button()
-                {
-                    Width = 120,
-                    Height = 50,
-                    Content = "Select All",
-                    HorizontalContentAlignment = HorizontalAlignment.Left,
-                    Background = new SolidColorBrush(Colors.Transparent)
-                };
-
-                selectAllButton.Click += SelectAllButton_Click;
-                selectAllButton.Margin = new Thickness(0);
-
-                var myFlyoutPresenterStyle = createFlyoutPresenterStyle();
-                meaningFlyout.FlyoutPresenterStyle = myFlyoutPresenterStyle;
-
-                StackPanel horizontalPanel = new StackPanel();
-
-                horizontalPanel.Padding = new Thickness(0);
-                horizontalPanel.Margin = new Thickness(0);
-                horizontalPanel.Children.Add(copyButton);
-                horizontalPanel.Children.Add(speakButton);
-                horizontalPanel.Children.Add(searchButton);
-                horizontalPanel.Children.Add(shareButton);
-                horizontalPanel.Children.Add(selectAllButton);
-                meaningFlyout.Content = horizontalPanel;
-
+                meaningFlyout.Items.Add(copyItem);
+                meaningFlyout.Items.Add(speakItem);
+                meaningFlyout.Items.Add(searchItem);
+                meaningFlyout.Items.Add(shareItem);
+                meaningFlyout.Items.Add(selectAllItem);
 
 
                 if (textBlockToTrack.SelectionStart != null && textToUse != string.Empty)
@@ -110,9 +55,77 @@ namespace betterContextMenuUWP
                     selectedText = textToUse;
                     meaningFlyout.Placement = FlyoutPlacementMode.Bottom;
                     meaningFlyout.AllowFocusOnInteraction = false;
-                    meaningFlyout.ShowAt(textBlockToTrack.SelectionStart.VisualParent);
+                    var rect = textBlockToTrack.SelectionEnd.GetCharacterRect(Windows.UI.Xaml.Documents.LogicalDirection.Forward);
+                    Point p = new Point(rect.Right, rect.Bottom);
+                    try
+                    {
+                        meaningFlyout.ShowAt(textBlockToTrack, p);
+                    }
+                    catch
+                    {
+                        meaningFlyout.ShowAt(textBlockToTrack);
+                    }
+
 
                 }
+            }
+        }
+
+        private static void SelectAllItem_Click(object sender, RoutedEventArgs e)
+        {
+            ogTextBlock.SelectAll();
+        }
+
+        private static void ShareItem_Click(object sender, RoutedEventArgs e)
+        {
+            DataTransferManager.ShowShareUI();
+        }
+
+        private async static void SearchItem_Click(object sender, RoutedEventArgs e)
+        {
+            await Launcher.LaunchUriAsync(new Uri($"https://www.bing.com/search?q={selectedText}"));
+        }
+
+        private async static void SpeakItem_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                meaningFlyout.Hide();
+                // The media object for controlling and playing audio.
+                MediaPlayerElement mediaElement = new MediaPlayerElement();
+
+                // The object for controlling the speech synthesis engine (voice).
+                var synth = new Windows.Media.SpeechSynthesis.SpeechSynthesizer();
+
+                // Generate the audio stream from plain text.
+                SpeechSynthesisStream stream = await synth.SynthesizeTextToStreamAsync(selectedText);
+
+
+                // Send the stream to the media object.
+
+                mediaElement.Source = MediaSource.CreateFromStream(stream, stream.ContentType);
+                mediaElement.MediaPlayer.Play();
+            }
+            catch (Exception ex)
+            {
+
+
+            }
+        }
+
+        private static void CopyItem_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                DataPackage dataPackage = new DataPackage();
+                dataPackage.RequestedOperation = DataPackageOperation.Copy;
+                dataPackage.SetText(selectedText);
+                Clipboard.SetContent(dataPackage);
+            }
+            
+            catch(Exception ex)
+            {
+
             }
         }
 
@@ -176,20 +189,6 @@ namespace betterContextMenuUWP
 
                 mediaElement.Source = MediaSource.CreateFromStream(stream, stream.ContentType);
                 mediaElement.MediaPlayer.Play();
-            }
-            catch (Exception ex)
-            {
-
-
-            }
-        }
-
-        private static void CopyButton_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                meaningFlyout.Hide();
-
             }
             catch (Exception ex)
             {
